@@ -1,0 +1,25 @@
+version: '3'
+services:
+  flyway:
+    image: redgate/flyway
+    command: -url=jdbc:mysql://db?allowPublicKeyRetrieval=true -schemas=myschema -user=root -password=P@ssw0rd -connectRetries=60 -reportFilename=/flyway/reports/report.html migrate
+    volumes:
+      - ./sql:/flyway/sql
+      - ./reports:/flyway/reports
+    depends_on:
+      - db
+  db:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=P@ssw0rd
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-authentication-plugin=mysql_native_password
+    ports:
+      - 3306:3306
+  nginx:
+    image: nginx:stable-alpine
+    volumes:
+      - ./reports/report.html:/usr/share/nginx/html/index.html
+    ports:
+      - 8080:80
+    depends_on:
+      - flyway

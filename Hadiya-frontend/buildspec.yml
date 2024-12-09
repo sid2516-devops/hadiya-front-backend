@@ -1,0 +1,53 @@
+version: 0.2
+
+env:
+  variables:
+    AWS_DEFAULT_REGION: "us-east-1"  # Set your AWS region here
+    REPOSITORY_NAME: "hadiya-dev-frontend"  # Set your ECR repository name here
+    GIT_COMMIT: $(git log -1 --pretty=format:%h)  # Fetches the short commit hash as the tag
+    IMAGE_TAG: $GIT_COMMIT  # Use the commit hash as the image tag
+    AWS_ACCOUNT_ID: !Sub "${AWS::AccountId}"
+
+phases:
+  pre_build:
+    commands:
+      - echo "Install prerequisites for Docker and AWS CLI..."
+      - apt-get update -y
+      - apt-get install -y docker.io
+      - apt install unzip -y
+
+      # Install AWS CLI
+      - echo "Installing AWS CLI..."
+      - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+      - unzip awscliv2.zip
+      - ./aws/install --update
+
+      # Log in to Amazon ECR
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 909325007152.dkr.ecr.us-east-1.amazonaws.com
+      # Set repository URI and image tag
+      - echo "Setting repository URI and image tag..."
+      - export REPOSITORY_URI=909325007152.dkr.ecr.us-east-1.amazonaws.com/hadiya-dev-frontend
+      - export IMAGE_TAG=build-$(echo $CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
+
+  build:
+    commands:
+      - echo "Build started on $(date)"
+      - echo "Building the Docker image..."
+      - docker build -t $REPOSITORY_NAME .
+
+  post_build:
+    commands:
+      - echo "Tagging the Docker image with commit ID..."
+      - docker tag $REPOSITORY_NAME $REPOSITORY_URI:$IMAGE_TAG
+
+      - echo "Pushing Docker image to ECR..."
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+
+      # Optionally, write an image definitions file for deployment tools
+      - echo "Writing image definitions file..."
+      - printf '[{"name":"%s","imageUri":"%s"}]' $REPOSITORY_NAME $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+
+artifacts:
+  files:
+    - imagedefinitions.json
