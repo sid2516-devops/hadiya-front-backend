@@ -4,7 +4,7 @@
 
 export const environment = {
   production: false,
-  apiGatewayURL: 'http://backend-LB-1309386382.us-east-1.elb.amazonaws.com:3000'
+  apiGatewayURL: 'http://localhost:3000'
 };
 
 /*
